@@ -1,0 +1,74 @@
+from flask import Flask, request, jsonify
+from flask_sqlalchemy import SQLAlchemy
+
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///travel_planner.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
+
+# Model for Travel Itineraries
+class Itinerary(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    destination = db.Column(db.String(100), nullable=False)
+    dates = db.Column(db.String(50), nullable=False)  # Format: YYYY-MM-DD to YYYY-MM-DD
+    activities = db.Column(db.Text, nullable=True)
+
+# Initialize the database
+with app.app_context():
+    db.create_all()
+
+@app.route('/')
+def home():
+    return "Welcome to the Travel Planner API!"
+
+@app.route('/itineraries', methods=['POST'])
+def add_itinerary():
+    data = request.get_json()
+    new_itinerary = Itinerary(
+        destination=data['destination'],
+        dates=data['dates'],
+        activities=data.get('activities')
+    )
+    db.session.add(new_itinerary)
+    db.session.commit()
+    return jsonify({'message': 'Itinerary added successfully'}), 201
+
+@app.route('/itineraries', methods=['GET'])
+def get_itineraries():
+    itineraries = Itinerary.query.all()
+    return jsonify([{
+        'id': i.id,
+        'destination': i.destination,
+        'dates': i.dates,
+        'activities': i.activities
+    } for i in itineraries]), 200
+
+@app.route('/itineraries/<int:id>', methods=['GET'])
+def get_itinerary(id):
+    itinerary = Itinerary.query.get_or_404(id)
+    return jsonify({
+        'id': itinerary.id,
+        'destination': itinerary.destination,
+        'dates': itinerary.dates,
+        'activities': itinerary.activities
+    }), 200
+
+@app.route('/itineraries/<int:id>', methods=['PUT'])
+def update_itinerary(id):
+    data = request.get_json()
+    itinerary = Itinerary.query.get_or_404(id)
+    itinerary.destination = data['destination']
+    itinerary.dates = data['dates']
+    itinerary.activities = data.get('activities', itinerary.activities)
+    db.session.commit()
+    return jsonify({'message': 'Itinerary updated successfully'}), 200
+
+@app.route('/itineraries/<int:id>', methods=['DELETE'])
+def delete_itinerary(id):
+    itinerary = Itinerary.query.get_or_404(id)
+    db.session.delete(itinerary)
+    db.session.commit()
+    return jsonify({'message': 'Itinerary deleted successfully'}), 200
+
+if __name__ == "__main__":
+    app.run(debug=True)
